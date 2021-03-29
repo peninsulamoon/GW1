@@ -23,7 +23,7 @@ end
 module Term = struct
   type t =
     | Z
-    | N
+    | N of t
     | S of t
     | True
     | False
@@ -39,7 +39,11 @@ end
  * for our arithmetic language. *)
 let rec typecheck (t : Term.t) : Type.t option =
   match t with
-  | Term.N -> Some (Type.Num)
+  | Term.N t -> 
+    let tau = typecheck t in
+    (match tau with
+     | Some Type.Int -> Some (Type.Num)
+     | _ -> None)
   | Term.Z -> Some (Type.Int)
   | Term.S t' ->
     let tau = typecheck t' in
@@ -87,7 +91,7 @@ exception Unreachable
 let rec eval (t : Term.t) : Term.t =
   match t with
   | Term.Z -> Term.Z
-  | Term.N -> Term.N
+  | Term.N t -> Term.N (eval t)
   | Term.S t' -> Term.S (eval t')
   | Term.True -> Term.True
   | Term.False -> Term.False
@@ -98,14 +102,14 @@ let rec eval (t : Term.t) : Term.t =
      | _ -> raise Unreachable)
   | Term.Plus (t1 , t2) -> 
      eval (match eval t1 with
-      | Term.N -> (match eval t2 with
-        | Term.N -> Term.N
+      | Term.N tao -> (match eval t2 with
+        | Term.N tao' -> Term.Plus (eval tao , eval tao')
         | _ -> raise Unreachable)
       | _ -> raise Unreachable)    
   | Term.Times (t1 , t2) -> 
      eval (match eval t1 with
-      | Term.N -> (match eval t2 with
-        | Term.N -> Term.N
+      | Term.N tao -> (match eval t2 with
+        | Term.N tao' -> Term.Times (eval tao , eval tao')
         | _ -> raise Unreachable)
       | _ -> raise Unreachable) 
   | Term.Iszero t' ->
@@ -126,8 +130,7 @@ let main () =
   let t3 = Term.Iszero Term.True in
   assert (typecheck t3 = None);
 
-  let t4 = Term.Plus  (Term.Times(Term.N, Term.N) , Term.N) in
-  assert (typecheck t4 = Some Type.Num);
-  assert (eval t4 = Term.N)
+  let t4 = Term.Plus  (Term.Times(Term.N (Term.S (Term.Z)), Term.N (Term.Z)) , Term.N (Term.Z)) in
+  assert (typecheck t4 = Some Type.Num)
 
 let () = main ()
